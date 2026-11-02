@@ -3,7 +3,7 @@
  * Plugin Name:       BNB API Index
  * Plugin URI:        https://github.com/taylorxquinn/bng-api-index
  * Description:       Publishes an agent-readable index of this site's API surface at /api.toon (TOON), /api.json, GET /wp-json/bng-api-index/v1, plus an OpenAPI 3.1 document at /openapi.json assembled from the live route table. Discovery is public; access stays behind each surface's own credential.
- * Version:           2026.11.2.003
+ * Version:           2026.11.2.004
  * Author:            Built Not Begged
  * Author URI:        https://builtnotbegged.com
  * License:           GPL-2.0-or-later
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BNG_API_INDEX_VERSION', '2026.11.2.003' );
+define( 'BNG_API_INDEX_VERSION', '2026.11.2.004' );
 define( 'BNG_API_INDEX_TRANSIENT', 'bng_api_index_cache_v1' );
 define( 'BNG_API_INDEX_OPENAPI_TRANSIENT', 'bng_api_index_openapi_v1' );
 
@@ -34,6 +34,28 @@ function bng_api_index_add_rewrite_rules() {
 	add_rewrite_rule( '^api\.toon$', 'index.php?bng_api_index_format=toon', 'top' );
 	add_rewrite_rule( '^api\.json$', 'index.php?bng_api_index_format=json', 'top' );
 	add_rewrite_rule( '^openapi\.json$', 'index.php?bng_api_index_format=openapi', 'top' );
+}
+
+/**
+ * Self-heal: if another plugin's permalink flush regenerated the stored
+ * rewrite rules while this plugin was momentarily unavailable (observed
+ * in the fleet on day one), the file routes 404 even though the plugin
+ * is active. The stored rules live in an autoloaded option, so checking
+ * them costs no query; if our rules are missing, regenerate once.
+ */
+add_action( 'init', 'bng_api_index_maybe_heal_rules', 99 );
+function bng_api_index_maybe_heal_rules() {
+	$rules = get_option( 'rewrite_rules' );
+	if ( ! is_array( $rules ) ) {
+		return;
+	}
+	foreach ( array_keys( $rules ) as $pattern ) {
+		if ( false !== strpos( $pattern, 'api\\.toon' ) ) {
+			return; // Our rules are present.
+		}
+	}
+	bng_api_index_add_rewrite_rules();
+	flush_rewrite_rules( false );
 }
 
 add_filter( 'query_vars', 'bng_api_index_query_vars' );

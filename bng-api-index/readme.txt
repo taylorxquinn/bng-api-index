@@ -4,7 +4,7 @@ Tags: api, rest-api, toon, agents, discovery
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 2026.11.2.003
+Stable tag: 2026.11.2.004
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,9 @@ Plugins can describe themselves with the `bng_api_index_describe` filter (namesp
 2. Visit `https://your-site.example/api.toon`.
 
 == Changelog ==
+
+= 2026.11.2.004 =
+* Self-healing rewrite rules: if another plugin's permalink flush regenerates the stored rules while this plugin is momentarily unavailable, /api.toon, /api.json and /openapi.json 404 even though the plugin is active and the REST routes still work (observed on builtnotbegged.com during rollout day). The plugin now checks the stored rules on init (an autoloaded option, no extra query) and regenerates them once if its own are missing.
 
 = 2026.11.2.003 =
 * OpenAPI layer: /openapi.json plus the /wp-json/bng-api-index/v1/openapi twin generate an OpenAPI 3.1 document from the live route table (paths, methods, parameter names/placement/types only, per-namespace security schemes: Basic application password, agent key, dedicated credential, bearer token, administrator session). Restricted namespaces contribute no paths and are named under x-restricted-surfaces. Self-describing plugins can merge richer detail via openapi_paths / openapi_schemas keys in the bng_api_index_describe filter. Route tables over 2,500 routes fall back to a namespace-level document. /api.toon now links the spec as openapi_spec, and the JSON index carries an openapi field.

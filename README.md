@@ -49,7 +49,7 @@ Copy `bng-api-index/` into `wp-content/plugins/` and activate. Requires WordPres
 
 ## Versioning
 
-CalVer. Current: **2026.11.2.003** — see `CHANGELOG.md` for item-by-item notes (never "bug fixes").
+CalVer. Current: **2026.11.2.004** — see `CHANGELOG.md` for item-by-item notes (never "bug fixes").
 
 ## License
 

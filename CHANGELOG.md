@@ -1,5 +1,9 @@
 # Changelog — BNB API Index
 
+## 2026.11.2.004 — 2026-11-02
+
+- Self-healing rewrite rules. Rollout-day finding on builtnotbegged.com: after the plugin was verified live, another actor's permalink flush regenerated the stored rewrite rules without this plugin's, and /api.toon + /api.json + /openapi.json 404'd while the REST routes (which do not depend on those stored rules) kept working. The plugin now checks the autoloaded `rewrite_rules` option on init and, if its rules are absent, re-registers and soft-flushes them once. No per-request query or cost when the rules are present.
+
 ## 2026.11.2.003 — 2026-11-02
 
 - OpenAPI 3.1 layer (owner addition, "publish a swagger inside there"): new `/openapi.json` file route and `GET /wp-json/bng-api-index/v1/openapi` REST twin, generated from the live route table into a separate one-hour transient.
