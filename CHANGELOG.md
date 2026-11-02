@@ -1,5 +1,15 @@
 # Changelog — BNB API Index
 
+## 2026.11.2.003 — 2026-11-02
+
+- OpenAPI 3.1 layer (owner addition, "publish a swagger inside there"): new `/openapi.json` file route and `GET /wp-json/bng-api-index/v1/openapi` REST twin, generated from the live route table into a separate one-hour transient.
+- Per-route skeleton: WP route regexes converted to path templates; operations carry tags (namespace), parameters extracted from route registration (name, path/query placement, required flag, schema type — never defaults, enums, or any value), a 200 response, a 401 response on gated surfaces, and the security requirement implied by the namespace's auth classification.
+- Security schemes defined once in components: `appPassword` (HTTP Basic, WordPress application passwords), `agentKey` and `dedicatedCredential` (apiKey headers with placeholder names — the operator issues the exact header name with the credential), `bearerToken`, `adminSession` (logged-in cookie).
+- Restricted namespaces (Server Stats) publish no paths; they appear under `x-restricted-surfaces` with namespace + auth type only.
+- Self-describe filter extended: entries may add `openapi_paths` and `openapi_schemas`, merged over the generated skeleton into paths and components.schemas.
+- Safety valve: route tables over 2,500 routes fall back to a namespace-level document (marked `x-index-mode`) so every site still ships a spec.
+- `/api.toon` links the document as `openapi_spec:`; the JSON index gains an `openapi` field.
+
 ## 2026.11.2.002 — 2026-11-02
 
 - Classification accuracy pass from the builtnotbegged.com pilot output: `oembed` (bare form) is core/public; `batch/v1` and `wp-abilities/v1` are WordPress core, not vendor; `mcp` (MCP adapter) is described as an administrator-session agent surface.

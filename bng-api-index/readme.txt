@@ -4,7 +4,7 @@ Tags: api, rest-api, toon, agents, discovery
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 2026.11.2.002
+Stable tag: 2026.11.2.003
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,7 @@ Every site has an API. Almost no site says what it is. BNB API Index fixes that 
 * `GET /api.toon` — the index in TOON (Token-Oriented Object Notation), the same family as library.toon and join.toon.
 * `GET /api.json` — the same index as JSON.
 * `GET /wp-json/bng-api-index/v1` — the same index as a live REST route.
+* `GET /openapi.json` (twin: `GET /wp-json/bng-api-index/v1/openapi`) — an OpenAPI 3.1 document assembled from the live route table: paths, methods, parameter names/types, and the security scheme each namespace's auth classification implies. Restricted namespaces publish no paths. Sites whose route table grows past the built-in threshold fall back to a namespace-level document automatically.
 
 The index is generated from the live REST route table and cached in a one-hour transient, so it stays true as plugins are installed or removed. For each namespace it lists: base path, owner (ours / vendor / core), auth type by name only (public, app-password, agent-key, dedicated-credential, admin, token), route count, and a one-line purpose.
 
@@ -35,6 +36,9 @@ Plugins can describe themselves with the `bng_api_index_describe` filter (namesp
 2. Visit `https://your-site.example/api.toon`.
 
 == Changelog ==
+
+= 2026.11.2.003 =
+* OpenAPI layer: /openapi.json plus the /wp-json/bng-api-index/v1/openapi twin generate an OpenAPI 3.1 document from the live route table (paths, methods, parameter names/placement/types only, per-namespace security schemes: Basic application password, agent key, dedicated credential, bearer token, administrator session). Restricted namespaces contribute no paths and are named under x-restricted-surfaces. Self-describing plugins can merge richer detail via openapi_paths / openapi_schemas keys in the bng_api_index_describe filter. Route tables over 2,500 routes fall back to a namespace-level document. /api.toon now links the spec as openapi_spec, and the JSON index carries an openapi field.
 
 = 2026.11.2.002 =
 * Classification accuracy from the Built Not Begged pilot: oEmbed (bare namespace form), the core batch endpoint and the core Abilities API are now classified as WordPress core instead of vendor; the MCP adapter endpoint is classified as an administrator-session agent surface.

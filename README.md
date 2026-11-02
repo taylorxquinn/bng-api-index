@@ -11,6 +11,8 @@ A WordPress micro-plugin from **Built Not Begged** that publishes an agent-reada
 | `GET /api.toon` | TOON (Token-Oriented Object Notation) |
 | `GET /api.json` | JSON twin of the same index |
 | `GET /wp-json/bng-api-index/v1` | Live REST route |
+| `GET /openapi.json` | OpenAPI 3.1 document from the live route table |
+| `GET /wp-json/bng-api-index/v1/openapi` | REST twin of the OpenAPI document |
 
 The index is generated from the live REST route table (one-hour transient cache), so it stays true as plugins come and go. Each surface lists: namespace, base path, owner (`ours` / `vendor` / `core`), auth type **by name only** (`public`, `app-password`, `agent-key`, `dedicated-credential`, `admin`, `token`), route count, and a one-line purpose.
 
@@ -39,13 +41,15 @@ add_filter( 'bng_api_index_describe', function ( $d ) {
 } );
 ```
 
+The same entry can enrich the OpenAPI document with two optional keys: `openapi_paths` (path => path item, merged over the generated skeleton) and `openapi_schemas` (name => schema, merged into `components.schemas`).
+
 ## Install
 
 Copy `bng-api-index/` into `wp-content/plugins/` and activate. Requires WordPress 6.0+ and PHP 8.0+.
 
 ## Versioning
 
-CalVer. Current: **2026.11.2.002** — see `CHANGELOG.md` for item-by-item notes (never "bug fixes").
+CalVer. Current: **2026.11.2.003** — see `CHANGELOG.md` for item-by-item notes (never "bug fixes").
 
 ## License
 

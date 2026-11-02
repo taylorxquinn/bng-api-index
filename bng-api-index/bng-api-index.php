@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       BNB API Index
  * Plugin URI:        https://github.com/taylorxquinn/bng-api-index
- * Description:       Publishes an agent-readable index of this site's API surface at /api.toon (TOON), /api.json, and GET /wp-json/bng-api-index/v1. Discovery is public; access stays behind each surface's own credential.
- * Version:           2026.11.2.002
+ * Description:       Publishes an agent-readable index of this site's API surface at /api.toon (TOON), /api.json, GET /wp-json/bng-api-index/v1, plus an OpenAPI 3.1 document at /openapi.json assembled from the live route table. Discovery is public; access stays behind each surface's own credential.
+ * Version:           2026.11.2.003
  * Author:            Built Not Begged
  * Author URI:        https://builtnotbegged.com
  * License:           GPL-2.0-or-later
@@ -21,8 +21,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BNG_API_INDEX_VERSION', '2026.11.2.002' );
+define( 'BNG_API_INDEX_VERSION', '2026.11.2.003' );
 define( 'BNG_API_INDEX_TRANSIENT', 'bng_api_index_cache_v1' );
+define( 'BNG_API_INDEX_OPENAPI_TRANSIENT', 'bng_api_index_openapi_v1' );
 
 /* -------------------------------------------------------------------------
  * Rewrite rules: /api.toon and /api.json at the site root.
@@ -32,6 +33,7 @@ add_action( 'init', 'bng_api_index_add_rewrite_rules' );
 function bng_api_index_add_rewrite_rules() {
 	add_rewrite_rule( '^api\.toon$', 'index.php?bng_api_index_format=toon', 'top' );
 	add_rewrite_rule( '^api\.json$', 'index.php?bng_api_index_format=json', 'top' );
+	add_rewrite_rule( '^openapi\.json$', 'index.php?bng_api_index_format=openapi', 'top' );
 }
 
 add_filter( 'query_vars', 'bng_api_index_query_vars' );
@@ -45,12 +47,14 @@ function bng_api_index_activate() {
 	bng_api_index_add_rewrite_rules();
 	flush_rewrite_rules();
 	delete_transient( BNG_API_INDEX_TRANSIENT );
+	delete_transient( BNG_API_INDEX_OPENAPI_TRANSIENT );
 }
 
 register_deactivation_hook( __FILE__, 'bng_api_index_deactivate' );
 function bng_api_index_deactivate() {
 	flush_rewrite_rules();
 	delete_transient( BNG_API_INDEX_TRANSIENT );
+	delete_transient( BNG_API_INDEX_OPENAPI_TRANSIENT );
 }
 
 add_action( 'template_redirect', 'bng_api_index_serve_file', 0 );
@@ -58,6 +62,13 @@ function bng_api_index_serve_file() {
 	$format = get_query_var( 'bng_api_index_format' );
 	if ( ! $format ) {
 		return;
+	}
+	if ( 'openapi' === $format ) {
+		status_header( 200 );
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'Cache-Control: public, max-age=3600' );
+		echo wp_json_encode( bng_api_index_openapi_get(), JSON_UNESCAPED_SLASHES );
+		exit;
 	}
 	$index = bng_api_index_get();
 	if ( 'json' === $format ) {
@@ -89,10 +100,23 @@ function bng_api_index_register_rest_route() {
 			'callback'            => 'bng_api_index_rest_callback',
 		)
 	);
+	register_rest_route(
+		'bng-api-index/v1',
+		'/openapi',
+		array(
+			'methods'             => 'GET',
+			'permission_callback' => '__return_true',
+			'callback'            => 'bng_api_index_rest_openapi_callback',
+		)
+	);
 }
 
 function bng_api_index_rest_callback() {
 	return rest_ensure_response( bng_api_index_get() );
+}
+
+function bng_api_index_rest_openapi_callback() {
+	return rest_ensure_response( bng_api_index_openapi_get() );
 }
 
 /* -------------------------------------------------------------------------
@@ -212,6 +236,7 @@ function bng_api_index_build() {
 		'generated'      => gmdate( 'c' ),
 		'generator'      => 'BNB API Index ' . BNG_API_INDEX_VERSION,
 		'rest_index'     => rest_url( '/' ),
+		'openapi'        => home_url( '/openapi.json' ),
 		'note'           => 'Discovery is public; access is not. Gated surfaces require their own credential and return 401 without it.',
 		'surface_count'  => count( $surfaces ),
 		'surfaces'       => $surfaces,
@@ -442,6 +467,7 @@ function bng_api_index_to_toon( $index ) {
 	$lines[] = 'format: TOON';
 	$lines[] = 'rest_index: ' . $index['rest_index'];
 	$lines[] = 'json_twin: ' . $index['site']['url'] . 'api.json';
+	$lines[] = 'openapi_spec: ' . $index['site']['url'] . 'openapi.json';
 	$lines[] = 'note: "' . $index['note'] . '"';
 	$lines[] = '';
 	$count   = count( $index['surfaces'] );
@@ -463,4 +489,294 @@ function bng_api_index_to_toon( $index ) {
 	$lines[] = '';
 	$lines[] = 'credential_pointers: "Auth types are named only; no credential value is ever listed. App passwords: WordPress profile. Agent keys and dedicated credentials: issued by the site operator."';
 	return implode( "\n", $lines ) . "\n";
+}
+
+/* -------------------------------------------------------------------------
+ * OpenAPI 3.1 document, assembled from the live route table.
+ *
+ * Per-route skeleton by default: paths, methods, parameters (names,
+ * placement, required flag, and types only — never defaults, enums, or
+ * any value) and the security scheme implied by each namespace's auth
+ * classification. Restricted namespaces contribute NO paths; they are
+ * named under the x-restricted-surfaces extension with their auth type
+ * only. Plugins can contribute richer detail through the
+ * bng_api_index_describe filter: an entry may carry 'openapi_paths'
+ * (path => path item, merged over the generated skeleton) and
+ * 'openapi_schemas' (name => schema, merged into components.schemas).
+ *
+ * If a site's route table ever grows past the skeleton threshold, the
+ * document falls back to namespace-level paths so it always ships.
+ * ---------------------------------------------------------------------- */
+
+define( 'BNG_API_INDEX_OPENAPI_FULL_LIMIT', 2500 );
+
+function bng_api_index_openapi_get() {
+	$cached = get_transient( BNG_API_INDEX_OPENAPI_TRANSIENT );
+	if ( is_array( $cached ) && isset( $cached['openapi'] ) ) {
+		return $cached;
+	}
+	$doc = bng_api_index_build_openapi();
+	set_transient( BNG_API_INDEX_OPENAPI_TRANSIENT, $doc, HOUR_IN_SECONDS );
+	return $doc;
+}
+
+function bng_api_index_openapi_security_for( $auth ) {
+	switch ( $auth ) {
+		case 'public':
+			return array();
+		case 'agent-key':
+			return array( array( 'agentKey' => array() ) );
+		case 'dedicated-credential':
+			return array( array( 'dedicatedCredential' => array() ) );
+		case 'public / dedicated-credential':
+			return array( array( 'dedicatedCredential' => array() ), new stdClass() );
+		case 'admin':
+			return array( array( 'adminSession' => array() ) );
+		case 'token':
+			return array( array( 'bearerToken' => array() ) );
+		case 'app-password':
+		default:
+			return array( array( 'appPassword' => array() ) );
+	}
+}
+
+function bng_api_index_openapi_path_of( $route ) {
+	$path = preg_replace( '#\(\?P<(\w+)>[^)]*\)#', '{$1}', $route );
+	if ( false === strpos( $path, '(?P<' ) ) {
+		// Best-effort cleanup of any remaining regex grouping syntax.
+		$path = str_replace( array( '(?:', ')?', '(', ')' ), '', $path );
+		$path = rtrim( $path, '?' );
+	}
+	return $path;
+}
+
+function bng_api_index_openapi_param_schema( $arg ) {
+	$schema = array();
+	if ( isset( $arg['type'] ) ) {
+		if ( is_string( $arg['type'] ) ) {
+			$schema['type'] = $arg['type'];
+		} elseif ( is_array( $arg['type'] ) ) {
+			$types = array_values( array_filter( $arg['type'], 'is_string' ) );
+			if ( $types ) {
+				$schema['type'] = $types;
+			}
+		}
+	}
+	if ( ! $schema ) {
+		$schema['type'] = 'string';
+	}
+	return $schema;
+}
+
+function bng_api_index_build_openapi() {
+	$index    = bng_api_index_get();
+	$surfaces = array();
+	foreach ( $index['surfaces'] as $surface ) {
+		$surfaces[ $surface['namespace'] ] = $surface;
+	}
+
+	$server = rest_get_server();
+	$routes = $server->get_routes();
+	$total  = 0;
+	foreach ( $routes as $route => $handlers ) {
+		if ( '/' !== $route ) {
+			$total++;
+		}
+	}
+	$full = $total <= BNG_API_INDEX_OPENAPI_FULL_LIMIT;
+
+	$paths          = array();
+	$restricted_out = array();
+	foreach ( $surfaces as $ns => $surface ) {
+		if ( $surface['restricted'] ) {
+			$restricted_out[] = array(
+				'namespace' => $ns,
+				'auth'      => $surface['auth'],
+				'note'      => 'Credential-gated by design; paths are not published.',
+			);
+		}
+	}
+
+	if ( $full ) {
+		foreach ( $routes as $route => $handlers ) {
+			if ( '/' === $route ) {
+				continue;
+			}
+			$ns = bng_api_index_namespace_of( $route );
+			if ( null === $ns || ! isset( $surfaces[ $ns ] ) ) {
+				continue;
+			}
+			$surface = $surfaces[ $ns ];
+			if ( $surface['restricted'] ) {
+				continue;
+			}
+			$path = bng_api_index_openapi_path_of( $route );
+			if ( false !== strpos( $path, '(?P<' ) || false !== strpos( $path, '(?' ) ) {
+				continue; // Route regex too exotic to convert safely; skeleton skips it.
+			}
+			if ( ! isset( $paths[ $path ] ) ) {
+				$paths[ $path ] = array();
+			}
+			foreach ( (array) $handlers as $endpoint ) {
+				if ( ! isset( $endpoint['methods'] ) || ! is_array( $endpoint['methods'] ) ) {
+					continue;
+				}
+				$args = isset( $endpoint['args'] ) && is_array( $endpoint['args'] ) ? $endpoint['args'] : array();
+				foreach ( array_keys( $endpoint['methods'] ) as $method ) {
+					$method_l = strtolower( $method );
+					if ( 'head' === $method_l ) {
+						continue;
+					}
+					$parameters = array();
+					$seen       = array();
+					foreach ( $args as $name => $arg ) {
+						if ( ! is_string( $name ) || ! is_array( $arg ) ) {
+							continue;
+						}
+						$in_path = false !== strpos( $path, '{' . $name . '}' );
+						$param   = array(
+							'name'     => $name,
+							'in'       => $in_path ? 'path' : 'query',
+							'required' => $in_path ? true : ! empty( $arg['required'] ),
+							'schema'   => bng_api_index_openapi_param_schema( $arg ),
+						);
+						if ( isset( $arg['description'] ) && is_string( $arg['description'] ) && '' !== $arg['description'] ) {
+							$param['description'] = $arg['description'];
+						}
+						$parameters[]  = $param;
+						$seen[ $name ] = true;
+					}
+					if ( preg_match_all( '/\{(\w+)\}/', $path, $m ) ) {
+						foreach ( $m[1] as $name ) {
+							if ( ! isset( $seen[ $name ] ) ) {
+								$parameters[] = array(
+									'name'     => $name,
+									'in'       => 'path',
+									'required' => true,
+									'schema'   => array( 'type' => 'string' ),
+								);
+							}
+						}
+					}
+					$operation = array(
+						'tags'        => array( $ns ),
+						'operationId' => preg_replace( '/[^a-zA-Z0-9]+/', '_', $method_l . $route ),
+						'responses'   => array(
+							'200' => array( 'description' => 'OK' ),
+						),
+					);
+					if ( $parameters ) {
+						$operation['parameters'] = $parameters;
+					}
+					$operation['security'] = bng_api_index_openapi_security_for( $surface['auth'] );
+					if ( 'public' !== $surface['auth'] ) {
+						$operation['responses']['401'] = array( 'description' => 'Missing or invalid credential for this surface.' );
+					}
+					$paths[ $path ][ $method_l ] = $operation;
+				}
+			}
+		}
+	} else {
+		// Namespace-level fallback for very large route tables.
+		foreach ( $surfaces as $ns => $surface ) {
+			if ( $surface['restricted'] ) {
+				continue;
+			}
+			$paths[ '/' . $ns ] = array(
+				'get' => array(
+					'tags'        => array( $ns ),
+					'summary'     => $surface['purpose'],
+					'description' => 'Namespace-level entry; this site\'s route table exceeds the per-route skeleton threshold, so individual routes are listed in the REST index instead.',
+					'security'    => bng_api_index_openapi_security_for( $surface['auth'] ),
+					'responses'   => array(
+						'200' => array( 'description' => 'OK' ),
+					),
+				),
+			);
+		}
+	}
+
+	// Self-described contributions merge over the generated skeleton.
+	$described = apply_filters( 'bng_api_index_describe', array() );
+	$schemas   = array();
+	if ( is_array( $described ) ) {
+		foreach ( $described as $ns => $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			if ( isset( $entry['openapi_paths'] ) && is_array( $entry['openapi_paths'] ) ) {
+				foreach ( $entry['openapi_paths'] as $p => $path_item ) {
+					if ( is_array( $path_item ) ) {
+						$paths[ $p ] = isset( $paths[ $p ] ) ? array_merge( $paths[ $p ], $path_item ) : $path_item;
+					}
+				}
+			}
+			if ( isset( $entry['openapi_schemas'] ) && is_array( $entry['openapi_schemas'] ) ) {
+				foreach ( $entry['openapi_schemas'] as $name => $schema ) {
+					if ( is_array( $schema ) ) {
+						$schemas[ $name ] = $schema;
+					}
+				}
+			}
+		}
+	}
+
+	ksort( $paths );
+
+	$components = array(
+		'securitySchemes' => array(
+			'appPassword'         => array(
+				'type'        => 'http',
+				'scheme'      => 'basic',
+				'description' => 'WordPress application password, sent as HTTP Basic credentials.',
+			),
+			'agentKey'            => array(
+				'type'        => 'apiKey',
+				'in'          => 'header',
+				'name'        => 'X-Agent-Key',
+				'description' => 'Agent key issued by the site operator. The exact header name is issued with the key; X-Agent-Key is the placeholder name in this document.',
+			),
+			'dedicatedCredential' => array(
+				'type'        => 'apiKey',
+				'in'          => 'header',
+				'name'        => 'X-API-Key',
+				'description' => 'Dedicated per-service credential issued by the site operator. The exact header name is issued with the credential; X-API-Key is the placeholder name in this document.',
+			),
+			'bearerToken'         => array(
+				'type'        => 'http',
+				'scheme'      => 'bearer',
+				'description' => 'API token issued by the site operator.',
+			),
+			'adminSession'        => array(
+				'type'        => 'apiKey',
+				'in'          => 'cookie',
+				'name'        => 'wordpress_logged_in',
+				'description' => 'Signed-in WordPress administrator session; not callable with a standalone key.',
+			),
+		),
+	);
+	if ( $schemas ) {
+		$components['schemas'] = $schemas;
+	}
+
+	$doc = array(
+		'openapi' => '3.1.0',
+		'info'    => array(
+			'title'       => $index['site']['name'] . ' API',
+			'version'     => BNG_API_INDEX_VERSION,
+			'description' => 'Generated by BNB API Index from the live route table. Discovery is public; access is token-gated per surface. Parameters are names and types only. Restricted surfaces publish no paths; see x-restricted-surfaces.',
+		),
+		'servers' => array(
+			array( 'url' => rest_url( '/' ) ),
+		),
+		'paths'   => $paths ? $paths : new stdClass(),
+		'components' => $components,
+	);
+	if ( $restricted_out ) {
+		$doc['x-restricted-surfaces'] = $restricted_out;
+	}
+	if ( ! $full ) {
+		$doc['x-index-mode'] = 'namespace-level (route table over per-route threshold)';
+	}
+	return $doc;
 }
