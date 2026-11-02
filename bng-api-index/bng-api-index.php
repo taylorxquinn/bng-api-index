@@ -3,7 +3,7 @@
  * Plugin Name:       BNB API Index
  * Plugin URI:        https://github.com/taylorxquinn/bng-api-index
  * Description:       Publishes an agent-readable index of this site's API surface at /api.toon (TOON), /api.json, and GET /wp-json/bng-api-index/v1. Discovery is public; access stays behind each surface's own credential.
- * Version:           2026.11.2.001
+ * Version:           2026.11.2.002
  * Author:            Built Not Begged
  * Author URI:        https://builtnotbegged.com
  * License:           GPL-2.0-or-later
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BNG_API_INDEX_VERSION', '2026.11.2.001' );
+define( 'BNG_API_INDEX_VERSION', '2026.11.2.002' );
 define( 'BNG_API_INDEX_TRANSIENT', 'bng_api_index_cache_v1' );
 
 /* -------------------------------------------------------------------------
@@ -311,6 +311,26 @@ function bng_api_index_builtin_map() {
 			'owner'   => 'core',
 			'auth'    => 'public',
 			'purpose' => 'oEmbed discovery for this site\'s published content.',
+		),
+		'oembed'                          => array(
+			'owner'   => 'core',
+			'auth'    => 'public',
+			'purpose' => 'oEmbed discovery for this site\'s published content.',
+		),
+		'batch/v1'                        => array(
+			'owner'   => 'core',
+			'auth'    => 'app-password',
+			'purpose' => 'WordPress core batch endpoint: groups REST requests into one call.',
+		),
+		'wp-abilities/v1'                 => array(
+			'owner'   => 'core',
+			'auth'    => 'app-password',
+			'purpose' => 'WordPress core Abilities API.',
+		),
+		'mcp'                             => array(
+			'owner'   => 'vendor',
+			'auth'    => 'admin',
+			'purpose' => 'MCP adapter endpoint: agent-callable WordPress abilities over the Model Context Protocol.',
 		),
 		'bng-api-index/v1'                => array(
 			'owner'   => 'ours',

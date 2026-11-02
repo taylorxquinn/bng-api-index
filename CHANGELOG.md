@@ -1,5 +1,9 @@
 # Changelog — BNB API Index
 
+## 2026.11.2.002 — 2026-11-02
+
+- Classification accuracy pass from the builtnotbegged.com pilot output: `oembed` (bare form) is core/public; `batch/v1` and `wp-abilities/v1` are WordPress core, not vendor; `mcp` (MCP adapter) is described as an administrator-session agent surface.
+
 ## 2026.11.2.001 — 2026-11-02
 
 - Initial release.

@@ -4,7 +4,7 @@ Tags: api, rest-api, toon, agents, discovery
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 2026.11.2.001
+Stable tag: 2026.11.2.002
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,9 @@ Plugins can describe themselves with the `bng_api_index_describe` filter (namesp
 2. Visit `https://your-site.example/api.toon`.
 
 == Changelog ==
+
+= 2026.11.2.002 =
+* Classification accuracy from the Built Not Begged pilot: oEmbed (bare namespace form), the core batch endpoint and the core Abilities API are now classified as WordPress core instead of vendor; the MCP adapter endpoint is classified as an administrator-session agent surface.
 
 = 2026.11.2.001 =
 * Initial release: /api.toon (TOON) + /api.json twin + GET /wp-json/bng-api-index/v1, generated from the live route table with a one-hour transient cache.
